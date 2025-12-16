@@ -1,0 +1,132 @@
+# DeepFocus 项目 Git 忽略文件配置
+
+# ==================== Python 相关 ====================
+
+# 字节码文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C 扩展
+*.so
+
+# 分发 / 打包
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+
+# ==================== 虚拟环境 ====================
+
+venv/
+.venv/
+ENV/
+env/
+virtualenv/
+
+
+# ==================== IDE / 编辑器 ====================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+
+
+# ==================== 操作系统 ====================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+
+# ==================== 项目特定 ====================
+
+# 输出文件
+outputs/
+!outputs/.gitkeep
+
+# 日志文件
+*.log
+
+# 临时文件
+temp/
+tmp/
+*.tmp
+
+# 测试覆盖率报告
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+
+# ==================== Jupyter Notebook ====================
+
+.ipynb_checkpoints
+
+
+# ==================== 其他 ====================
+
+# 环境变量文件
+.env
+.env.local
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 备份文件
+*.bak
+*.backup
+

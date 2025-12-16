@@ -1,0 +1,277 @@
+---
+alwaysApply: true
+---
+# Git 提交指南 - 避免中文乱码的标准流程
+
+## 🎯 核心规则（AI 助手必须遵守）
+
+**在 PowerShell 环境下，永远使用临时文件方式提交！**
+
+---
+
+## ✅ 标准提交流程（AI 助手执行）
+
+### 完整步骤
+
+```
+1. 创建 UTF-8 编码的临时文件
+2. 使用 git commit -F 文件名
+3. 验证提交信息
+4. 删除临时文件
+```
+
+### 代码实现
+
+```python
+# 1. 创建提交信息文件（UTF-8编码）
+write_file("commit_msg.txt", """<提交类型>: <标题>
+
+- 详细说明1
+- 详细说明2
+""")
+
+# 2. 执行提交
+run_command("git commit -F commit_msg.txt")
+
+# 3. 验证提交
+run_command("git log -1 --oneline")
+
+# 4. 清理临时文件
+delete_file("commit_msg.txt")
+```
+
+---
+
+## ⚠️ 关键注意事项
+
+### 1. 文件路径问题（重要！）
+
+**问题**：如果工作目录不在项目根目录，Git 找不到文件会失败
+
+**解决方案**：
+
+```powershell
+# ❌ 错误：当前目录在 tests/semantic，文件在根目录
+git commit -F commit_msg.txt  # 找不到文件！
+
+# ✅ 正确：使用相对路径或绝对路径
+git commit -F ../../commit_msg.txt  # 相对路径
+git commit -F C:\path\to\commit_msg.txt  # 绝对路径
+
+# ✅ 最佳：确保在项目根目录创建和使用文件
+# 始终在项目根目录操作
+```
+
+**AI 助手规范**：
+
+- 临时文件始终在项目根目录创建
+- 提交时确保能找到文件（使用相对/绝对路径）
+
+### 2. 文件编码必须是 UTF-8
+
+```powershell
+# ✅ 正确方式
+@"
+feat: 中文提交信息
+"@ | Out-File -FilePath commit_msg.txt -Encoding UTF8
+
+# ❌ 错误方式（会产生乱码）
+echo "feat: 中文提交信息" > commit_msg.txt  # 默认编码不是UTF-8
+```
+
+### 3. 提交信息格式规范
+
+```
+<类型>: <简短描述>
+
+- 详细说明1
+- 详细说明2
+- 相关任务: TASKXXX
+```
+
+**提交类型**：
+
+- `feat` - 新功能
+- `fix` - 修复 Bug
+- `docs` - 文档更新
+- `refactor` - 重构
+- `test` - 测试
+- `chore` - 构建/工具
+- `perf` - 性能优化
+
+---
+
+## 📝 AI 助手提交模板
+
+### 完整的提交函数（标准）
+
+```python
+def git_commit_with_file(title, details):
+    """
+    使用临时文件方式提交，避免中文乱码
+
+    Args:
+        title: 提交标题，如 "feat: 完成类型系统 (TASK002)"
+        details: 详细说明列表，如 ["实现基本类型", "添加测试"]
+    """
+    # 1. 构建提交信息
+    content = f"{title}\n\n"
+    for detail in details:
+        content += f"- {detail}\n"
+
+    # 2. 创建临时文件（UTF-8编码）
+    write_file("commit_msg.txt", content)
+
+    # 3. 添加文件到暂存区
+    run_command("git add .")
+
+    # 4. 使用文件提交
+    result = run_command("git commit -F commit_msg.txt")
+
+    # 5. 验证提交
+    if result.success:
+        log = run_command("git log -1 --oneline")
+        print(f"✓ 提交成功: {log}")
+
+    # 6. 清理临时文件
+    delete_file("commit_msg.txt")
+
+    return result.success
+```
+
+### 使用示例
+
+```python
+# 示例1: 完成功能
+git_commit_with_file(
+    "feat: 完成类型系统重构 (TASK002)",
+    [
+        "创建type_system.h和type_system.c",
+        "支持int/float/char类型",
+        "实现类型大小计算",
+        "完成10个单元测试"
+    ]
+)
+
+# 示例2: 修复Bug
+git_commit_with_file(
+    "fix: 修复符号表内存泄漏",
+    [
+        "添加内存释放函数",
+        "修复作用域退出时的内存问题"
+    ]
+)
+
+# 示例3: 更新文档
+git_commit_with_file(
+    "docs: 更新用户指南",
+    [
+        "添加类型系统使用说明",
+        "补充代码示例"
+    ]
+)
+```
+
+---
+
+## 🔧 修复乱码提交
+
+如果提交后发现乱码，使用同样的文件方式修复：
+
+```python
+# 1. 创建正确的提交信息文件
+write_file("fix_commit.txt", """feat: 正确的中文信息
+
+- 详细说明
+""")
+
+# 2. 修改最近一次提交
+run_command("git commit --amend -F fix_commit.txt")
+
+# 3. 验证
+run_command("git log -1")
+
+# 4. 清理
+delete_file("fix_commit.txt")
+```
+
+---
+
+## 🚀 推送到远程
+
+### 用户规则（必须遵守）
+
+- ✅ 可以随时提交到本地
+- ⚠️ **推送前必须征得用户确认**
+- ❌ 禁止 `git push --force` 到 main/master
+
+### 推送命令
+
+```bash
+# 首次推送（需要用户确认）
+git push -u origin main
+
+# 后续推送（需要用户确认）
+git push
+
+# 查看状态
+git status
+git remote -v
+```
+
+---
+
+## 📊 常用命令速查
+
+```bash
+# 查看状态
+git status              # 工作区状态
+git log --oneline -5    # 最近5次提交
+
+# 查看最新提交详情
+git log -1              # 完整信息
+git log -1 --oneline    # 简洁信息
+
+# 撤销操作
+git reset HEAD <file>   # 取消暂存
+git reset --soft HEAD~1 # 撤销提交（保留改动）
+```
+
+---
+
+## ✅ 提交前检查清单
+
+- [ ] 代码已测试通过
+- [ ] 使用临时文件方式提交
+- [ ] 提交信息格式正确
+- [ ] 验证提交信息无乱码
+- [ ] 清理临时文件
+
+---
+
+## 🎯 快速参考
+
+### AI 助手提交三步骤
+
+```
+1. write_file("commit_msg.txt", "...")
+2. git commit -F commit_msg.txt
+3. delete_file("commit_msg.txt")
+```
+
+### 常见问题
+
+**Q: 提示找不到文件？**
+A: 确保文件在正确的路径，或使用相对/绝对路径
+
+**Q: 提交后还是乱码？**
+A: 检查文件编码是否为 UTF-8，使用 Out-File -Encoding UTF8
+
+**Q: 需要修改历史提交？**
+A: 使用 git commit --amend -F 文件名
+
+---
+
+**规则版本**: v2.0 (简化版)  
+**最后更新**: 2025-12-16  
+**核心原则**: 始终使用临时文件 + UTF-8 编码 + 标准格式

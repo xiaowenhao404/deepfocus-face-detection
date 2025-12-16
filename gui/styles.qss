@@ -180,3 +180,19 @@ QMessageBox QPushButton {
     min-height: 32px;
 }
 
+/* ==================== 进度条 ==================== */
+QProgressBar {
+    border: 1px solid #d1d1d6;
+    border-radius: 6px;
+    background-color: #f5f5f7;
+    text-align: center;
+    height: 24px;
+    font-size: 12px;
+    color: #1d1d1f;
+}
+
+QProgressBar::chunk {
+    background-color: #007aff;
+    border-radius: 5px;
+}
+

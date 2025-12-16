@@ -7,7 +7,8 @@ DeepFocus 主窗口模块
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFileDialog, QStatusBar,
-    QTextEdit, QGroupBox, QSplitter, QMessageBox
+    QTextEdit, QGroupBox, QSplitter, QMessageBox,
+    QProgressBar
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap, QFont
@@ -18,6 +19,7 @@ import os
 
 from core.face_engine import FaceEngine
 from core.image_utils import safe_imread, save_image
+from gui.worker_threads import RecognitionWorker, BatchProcessWorker
 
 
 class MainWindow(QMainWindow):
@@ -44,6 +46,10 @@ class MainWindow(QMainWindow):
         self.current_image = None
         self.current_scene_path = None
         self.target_loaded = False
+        
+        # 工作线程
+        self.worker = None
+        self.batch_worker = None
         
         # 日志
         self.logger = logging.getLogger(__name__)
@@ -190,6 +196,20 @@ class MainWindow(QMainWindow):
         info_group.setLayout(info_layout)
         layout.addWidget(info_group)
         
+        # 进度条
+        progress_group = QGroupBox("处理进度")
+        progress_layout = QVBoxLayout()
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setTextVisible(True)
+        
+        progress_layout.addWidget(self.progress_bar)
+        progress_group.setLayout(progress_layout)
+        layout.addWidget(progress_group)
+        
         # 添加弹性空间
         layout.addStretch()
         panel.setLayout(layout)
@@ -303,9 +323,9 @@ class MainWindow(QMainWindow):
     
     def process_image(self):
         """
-        处理图像（简化版本，TASK005将实现多线程版本）
+        处理图像（多线程版本）
         
-        在场景图中搜索目标人脸并标注结果。
+        在后台线程中执行识别任务，避免阻塞GUI。
         """
         self.logger.info("用户点击：开始识别")
         
@@ -320,47 +340,114 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "请先加载场景图像！")
             return
         
+        # 防止重复创建线程
+        if self.worker is not None and self.worker.isRunning():
+            self.logger.warning("识别线程正在运行，忽略重复请求")
+            return
+        
         # 禁用按钮防止重复点击
         self.btn_process.setEnabled(False)
+        self.btn_load_target.setEnabled(False)
+        self.btn_load_scene.setEnabled(False)
         self.status_bar.showMessage("正在识别中，请稍候...")
         self.info_text.append("\n[开始] 识别处理中...")
         
-        try:
-            # 执行识别（注意：这里会阻塞UI，TASK005将改为多线程）
-            self.logger.info("开始处理场景图...")
-            result_img, info = self.engine.process_scene(
-                self.current_scene_path,
-                upsample=2  # 教室场景使用upsample=2
-            )
-            
-            # 更新显示
-            self.current_image = result_img
-            self.display_image(result_img)
-            
-            # 更新信息
-            self.info_text.append(f"[结果] {info}")
-            self.status_bar.showMessage("[成功] 识别完成")
-            
-            # 启用保存按钮
-            self.btn_save.setEnabled(True)
-            
-            self.logger.info(f"识别完成: {info}")
-            
-        except Exception as e:
-            self.info_text.append(f"\n[错误] 识别失败: {str(e)}")
-            self.status_bar.showMessage(f"[错误] 识别失败")
-            
-            self.logger.exception(f"识别过程发生错误: {e}")
-            
-            QMessageBox.critical(
-                self,
-                "识别失败",
-                f"识别过程发生错误！\n\n错误信息: {str(e)}"
-            )
+        # 显示进度条
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setValue(0)
         
-        finally:
-            # 恢复按钮状态
-            self.btn_process.setEnabled(True)
+        # 创建并启动工作线程
+        self.logger.info("创建识别工作线程")
+        self.worker = RecognitionWorker(
+            self.engine,
+            self.current_scene_path,
+            upsample=2  # 教室场景使用upsample=2
+        )
+        
+        # 连接信号与槽
+        self.worker.update_signal.connect(self.on_recognition_complete)
+        self.worker.error_signal.connect(self.on_recognition_error)
+        self.worker.progress_signal.connect(self.on_progress_update)
+        
+        # 启动线程
+        self.worker.start()
+        self.logger.info("识别线程已启动")
+    
+    def on_recognition_complete(self, result_img: np.ndarray, info: str):
+        """
+        识别完成回调函数
+        
+        在主线程中更新UI显示识别结果。
+        
+        Args:
+            result_img: 标注后的结果图像
+            info: 识别结果信息字符串
+        """
+        self.logger.info("识别完成回调触发")
+        
+        # 更新图像
+        self.current_image = result_img
+        self.display_image(result_img)
+        
+        # 更新信息
+        self.info_text.append(f"[结果] {info}")
+        self.status_bar.showMessage("[成功] 识别完成")
+        
+        # 隐藏进度条
+        self.progress_bar.setVisible(False)
+        
+        # 恢复按钮状态
+        self.btn_process.setEnabled(True)
+        self.btn_load_target.setEnabled(True)
+        self.btn_load_scene.setEnabled(True)
+        self.btn_save.setEnabled(True)
+        
+        self.logger.info(f"UI更新完成: {info}")
+    
+    def on_recognition_error(self, error_msg: str):
+        """
+        识别错误回调函数
+        
+        在主线程中显示错误信息。
+        
+        Args:
+            error_msg: 错误消息
+        """
+        self.logger.error(f"识别错误回调: {error_msg}")
+        
+        # 更新信息
+        self.info_text.append(f"\n[错误] {error_msg}")
+        self.status_bar.showMessage(f"[错误] 识别失败")
+        
+        # 隐藏进度条
+        self.progress_bar.setVisible(False)
+        
+        # 恢复按钮状态
+        self.btn_process.setEnabled(True)
+        self.btn_load_target.setEnabled(True)
+        self.btn_load_scene.setEnabled(True)
+        
+        # 显示错误对话框
+        QMessageBox.critical(
+            self,
+            "识别失败",
+            f"识别过程发生错误！\n\n{error_msg}"
+        )
+    
+    def on_progress_update(self, progress: int):
+        """
+        进度更新回调函数
+        
+        更新进度条显示。
+        
+        Args:
+            progress: 进度百分比（0-100）
+        """
+        self.progress_bar.setValue(progress)
+        
+        if progress >= 100:
+            # 完成后短暂延迟隐藏进度条
+            self.logger.debug("处理完成，进度100%")
     
     def save_result(self):
         """

@@ -27,6 +27,7 @@
 - ✅ 详细的 docstring 文档
 
 **类结构**:
+
 ```python
 class FaceEngine:
     def __init__(self, model_method: str = 'hog', tolerance: float = 0.45)
@@ -41,6 +42,7 @@ class FaceEngine:
 **方法**: `load_target_face(image_path: str) -> bool`
 
 **实现要点**:
+
 - ✅ 使用 `np.fromfile` + `cv2.imdecode` 支持中文路径
 - ✅ BGR 转 RGB 色彩空间转换
 - ✅ 调用 `face_recognition.face_locations` 检测人脸
@@ -51,6 +53,7 @@ class FaceEngine:
 - ✅ 返回 True/False 表示成功/失败
 
 **关键代码**:
+
 ```python
 # 支持中文路径
 img_data = np.fromfile(image_path, dtype=np.uint8)
@@ -74,6 +77,7 @@ self.target_encoding = encodings[0]
 **方法**: `process_scene(scene_path: str, upsample: int = 1) -> Tuple[np.ndarray, str]`
 
 **实现要点**:
+
 - ✅ 检查 `target_encoding` 是否已加载
 - ✅ 读取场景图像（支持中文路径）
 - ✅ 使用 `face_locations` 检测所有人脸（支持 upsample 参数）
@@ -84,6 +88,7 @@ self.target_encoding = encodings[0]
 - ✅ 返回标注后的图像和统计信息字符串
 
 **匹配逻辑**:
+
 ```python
 # 计算欧氏距离
 distance = face_recognition.face_distance([self.target_encoding], face_encoding)[0]
@@ -100,12 +105,14 @@ if is_match and distance < min_distance:
 ### 子任务 2.4: 实现结果可视化 ✅
 
 **绘图功能**:
+
 - ✅ 绘制人脸检测框（匹配用绿色粗框，非匹配用红色细框）
 - ✅ 绘制标签背景（填充矩形）
 - ✅ 显示匹配距离或"Unknown"标签
 - ✅ 使用白色文字确保可见性
 
 **可视化代码**:
+
 ```python
 # 匹配的人脸：绿色粗框
 if is_match:
@@ -121,7 +128,7 @@ else:
 cv2.rectangle(scene_img, (left, top), (right, bottom), color, thickness)
 
 # 绘制标签
-cv2.putText(scene_img, label, (left + 6, bottom - 6), 
+cv2.putText(scene_img, label, (left + 6, bottom - 6),
             cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
 ```
 
@@ -129,19 +136,19 @@ cv2.putText(scene_img, label, (left + 6, bottom - 6),
 
 ## 📊 验收标准检查
 
-| 验收项                            | 状态 | 说明                         |
-| --------------------------------- | ---- | ---------------------------- |
-| FaceEngine 类结构完整             | ✅   | 包含所有必需方法             |
-| 类型注解齐全                      | ✅   | 所有方法都有完整类型注解     |
-| load_target_face 正常工作         | ✅   | 能正确加载并编码目标人脸     |
-| process_scene 正常工作            | ✅   | 能检测并匹配场景中的人脸     |
-| 支持中文路径                      | ✅   | 使用 np.fromfile 方案        |
-| RGB/BGR 转换正确                  | ✅   | 正确处理色彩空间转换         |
-| 能检测并匹配人脸                  | ✅   | 基于欧氏距离和阈值判定       |
-| 结果可视化正确                    | ✅   | 绿色/红色框，标签清晰        |
-| 完整的 docstring                  | ✅   | 所有类和方法都有详细文档     |
-| 异常情况处理                      | ✅   | 文件不存在、无人脸等情况处理 |
-| 单元测试覆盖                      | ✅   | 9 个测试用例 + 集成测试      |
+| 验收项                    | 状态 | 说明                         |
+| ------------------------- | ---- | ---------------------------- |
+| FaceEngine 类结构完整     | ✅   | 包含所有必需方法             |
+| 类型注解齐全              | ✅   | 所有方法都有完整类型注解     |
+| load_target_face 正常工作 | ✅   | 能正确加载并编码目标人脸     |
+| process_scene 正常工作    | ✅   | 能检测并匹配场景中的人脸     |
+| 支持中文路径              | ✅   | 使用 np.fromfile 方案        |
+| RGB/BGR 转换正确          | ✅   | 正确处理色彩空间转换         |
+| 能检测并匹配人脸          | ✅   | 基于欧氏距离和阈值判定       |
+| 结果可视化正确            | ✅   | 绿色/红色框，标签清晰        |
+| 完整的 docstring          | ✅   | 所有类和方法都有详细文档     |
+| 异常情况处理              | ✅   | 文件不存在、无人脸等情况处理 |
+| 单元测试覆盖              | ✅   | 9 个测试用例 + 集成测试      |
 
 ---
 
@@ -152,6 +159,7 @@ cv2.putText(scene_img, label, (left + 6, bottom - 6),
 **问题**: OpenCV 的 `cv2.imread` 不支持包含中文的路径
 
 **解决方案**:
+
 ```python
 # 使用 numpy 读取二进制数据
 img_data = np.fromfile(image_path, dtype=np.uint8)
@@ -162,6 +170,7 @@ img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
 ### 2. 色彩空间转换
 
 **关键点**:
+
 - OpenCV 默认使用 BGR 格式
 - face_recognition 库要求 RGB 格式
 - 需要使用 `cv2.cvtColor` 转换
@@ -177,6 +186,7 @@ rgb_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2RGB)
 **注意**: 不是常见的 `(x, y, w, h)` 格式
 
 **面积计算**:
+
 ```python
 area = (bottom - top) * (right - left)
 ```
@@ -184,12 +194,14 @@ area = (bottom - top) * (right - left)
 ### 4. 特征匹配算法
 
 **基于欧氏距离**:
+
 ```python
 distance = face_recognition.face_distance([target], candidate)[0]
 is_match = distance <= tolerance
 ```
 
 **阈值调优**:
+
 - 默认阈值: 0.60
 - 亚洲人脸推荐: 0.40 - 0.45
 - 值越小越严格，越大越宽松
@@ -197,6 +209,7 @@ is_match = distance <= tolerance
 ### 5. 小人脸检测优化
 
 **使用 upsample 参数**:
+
 ```python
 # upsample=0: 不上采样，速度最快
 # upsample=1: 标准模式
@@ -215,6 +228,7 @@ boxes = face_recognition.face_locations(
 ### 测试文件: `tests/test_face_engine.py`
 
 **测试用例**:
+
 1. ✅ `test_01_engine_initialization` - 引擎初始化
 2. ✅ `test_02_factory_function` - 工厂函数
 3. ✅ `test_03_load_target_face_success` - 成功加载目标
@@ -226,9 +240,11 @@ boxes = face_recognition.face_locations(
 9. ✅ `test_09_upsample_parameter` - 上采样参数测试
 
 **集成测试**:
+
 - ✅ `test_complete_workflow` - 完整工作流程测试
 
 **运行测试**:
+
 ```bash
 python tests/test_face_engine.py
 ```
@@ -255,22 +271,26 @@ tests/
 ## 🎯 核心功能特性
 
 ### 1. 工业级精度
+
 - 基于 ResNet-34 深度残差网络
 - 128 维人脸特征向量
 - LFW 基准测试精度 99.38%
 
 ### 2. 鲁棒性强
+
 - 支持 HOG 和 CNN 两种检测模式
 - 自适应阈值匹配
 - 小人脸检测优化（upsample）
 
 ### 3. 易用性好
+
 - 简洁的 API 设计
 - 详细的日志输出
 - 完整的错误处理
 - 支持中文路径
 
 ### 4. 可扩展性
+
 - 模块化设计
 - 工厂函数支持
 - 便于集成到 GUI
@@ -316,11 +336,13 @@ for i in range(1, 9):
 ### 1. 依赖安装
 
 **必须先安装依赖**:
+
 ```bash
 pip install face-recognition opencv-python numpy
 ```
 
 **Windows 用户注意**:
+
 - dlib 需要预编译 wheel
 - 从 https://github.com/z-mahmud22/Dlib_Windows_Python3.x 下载
 
@@ -334,12 +356,14 @@ pip install face-recognition opencv-python numpy
 ### 3. 参数调优
 
 **tolerance（匹配阈值）**:
+
 - 默认: 0.60
 - 亚洲人脸: 0.40 - 0.45
 - 严格模式: 0.30 - 0.35
 - 宽松模式: 0.55 - 0.65
 
 **upsample（上采样）**:
+
 - 0: 速度优先（可能漏检小脸）
 - 1: 平衡模式（推荐）
 - 2: 精度优先（教室场景必选）
@@ -355,11 +379,13 @@ pip install face-recognition opencv-python numpy
 ## 🔗 与其他任务的关系
 
 ### 依赖项
+
 - ✅ TASK001: 项目基础架构（已完成）
   - 使用了 `config.py` 中的配置
   - 日志系统集成
 
 ### 被依赖项
+
 - ⏳ TASK003: 图像预处理模块
   - 将使用预处理增强图像质量
 - ⏳ TASK004: 基础 GUI 界面
@@ -376,6 +402,7 @@ pip install face-recognition opencv-python numpy
 TASK002 已成功完成！核心人脸识别引擎开发完毕，为后续 GUI 和功能增强奠定了基础。
 
 **完成情况**:
+
 - ✅ 所有子任务完成
 - ✅ 验收标准全部满足
 - ✅ 代码质量高，注释完整
@@ -383,6 +410,7 @@ TASK002 已成功完成！核心人脸识别引擎开发完毕，为后续 GUI �
 - ✅ 演示脚本可用
 
 **技术亮点**:
+
 - 工业级深度学习算法
 - 支持中文路径
 - 完善的错误处理
@@ -390,6 +418,7 @@ TASK002 已成功完成！核心人脸识别引擎开发完毕，为后续 GUI �
 - 灵活的参数配置
 
 **下一步**:
+
 - TASK003: 图像预处理模块开发
   - 实现 CLAHE 图像增强
   - 实现图像工具函数
@@ -400,4 +429,3 @@ TASK002 已成功完成！核心人脸识别引擎开发完毕，为后续 GUI �
 **报告生成时间**: 2025-12-16  
 **报告生成者**: AI Assistant  
 **预计工时**: 4-6 小时（实际完成）
-

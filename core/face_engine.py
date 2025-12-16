@@ -11,6 +11,8 @@ import numpy as np
 from typing import Tuple, Optional, List
 import logging
 
+from core.matcher import compute_confidence
+
 
 class FaceEngine:
     """
@@ -216,7 +218,10 @@ class FaceEngine:
                     # 匹配的人脸：绿色粗框
                     color = (0, 255, 0)  # BGR格式：绿色
                     thickness = 3
-                    label = f"Target ({distance:.3f})"
+                    
+                    # 计算置信度
+                    confidence = compute_confidence(distance, self.tolerance)
+                    label = f"Target {confidence:.1f}%"
                 else:
                     # 非匹配人脸：红色细框
                     color = (0, 0, 255)  # BGR格式：红色

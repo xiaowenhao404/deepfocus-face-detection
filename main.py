@@ -111,35 +111,33 @@ def main():
         if not check_dependencies():
             sys.exit(1)
         
-        # TODO: 启动GUI应用（TASK004 中实现）
-        # from PyQt5.QtWidgets import QApplication
-        # from gui.main_window import MainWindow
-        # 
-        # app = QApplication(sys.argv)
-        # 
-        # # 加载样式表
-        # try:
-        #     with open('gui/styles.qss', 'r', encoding='utf-8') as f:
-        #         app.setStyleSheet(f.read())
-        # except FileNotFoundError:
-        #     logging.warning("未找到样式表文件 gui/styles.qss")
-        # 
-        # window = MainWindow()
-        # window.show()
-        # 
-        # sys.exit(app.exec_())
+        # 启动GUI应用
+        from PyQt5.QtWidgets import QApplication
+        from gui.main_window import MainWindow
         
-        logging.info("项目基础架构搭建完成！")
-        logging.info("GUI模块将在 TASK004 中实现")
-        print("\n" + "="*60)
-        print(f"  {config.APP_NAME} v{config.APP_VERSION}")
-        print("  人脸识别与定位系统")
-        print("="*60)
-        print("\n[OK] 项目初始化成功！")
-        print(f"[OK] 日志目录: {config.LOGS_DIR}")
-        print(f"[OK] 输出目录: {config.OUTPUTS_DIR}")
-        print("\n下一步：开始开发核心模块（TASK002）")
-        print("="*60 + "\n")
+        logging.info("启动GUI应用...")
+        app = QApplication(sys.argv)
+        
+        # 设置应用程序信息
+        app.setApplicationName(config.APP_NAME)
+        app.setApplicationVersion(config.APP_VERSION)
+        
+        # 加载样式表
+        try:
+            with open('gui/styles.qss', 'r', encoding='utf-8') as f:
+                app.setStyleSheet(f.read())
+                logging.info("样式表加载成功")
+        except FileNotFoundError:
+            logging.warning("未找到样式表文件 gui/styles.qss，使用默认样式")
+        
+        # 创建并显示主窗口
+        window = MainWindow()
+        window.show()
+        
+        logging.info("GUI界面已显示")
+        
+        # 进入事件循环
+        sys.exit(app.exec_())
         
     except KeyboardInterrupt:
         logging.info("用户中断程序")

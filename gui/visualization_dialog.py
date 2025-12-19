@@ -6,32 +6,40 @@
 
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, 
-    QPushButton, QScrollArea, QWidget, QFrame
+    QPushButton, QScrollArea, QWidget, QFrame, QSizePolicy
 )
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import Qt, QPoint, QTimer
+from PyQt5.QtGui import QPixmap, QImage, QWheelEvent, QMouseEvent
 import numpy as np
 import cv2
 
 
-class ImageStageWidget(QFrame):
-    """单个阶段图像显示组件"""
+class ZoomableStageWidget(QFrame):
+    """可缩放的阶段图像显示组件"""
     
     def __init__(self, title: str, parent=None):
         super().__init__(parent)
         self.title = title
         self.original_pixmap = None
+        self.scale_factor = 1.0
+        self.min_scale = 0.5
+        self.max_scale = 5.0
+        self.dragging = False
+        self.last_pos = QPoint()
         self._init_ui()
     
     def _init_ui(self):
-        self.setObjectName("ImageStageWidget")
+        self.setObjectName("ZoomableStageWidget")
         self.setStyleSheet("""
-            QFrame#ImageStageWidget {
+            QFrame#ZoomableStageWidget {
                 background-color: #FFFFFF;
                 border: 1px solid #E5E5E5;
                 border-radius: 8px;
             }
         """)
+        
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setMinimumSize(250, 200)
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -45,24 +53,41 @@ class ImageStageWidget(QFrame):
             color: #1D1D1F;
         """)
         self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setFixedHeight(20)
         
-        # 图像
-        self.image_label = QLabel()
-        self.image_label.setMinimumSize(200, 150)
-        self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setStyleSheet("""
-            background-color: #F5F5F7;
-            border-radius: 4px;
+        # 滚动区域（支持缩放后的平移）
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(False)
+        self.scroll_area.setAlignment(Qt.AlignCenter)
+        self.scroll_area.setStyleSheet("""
+            QScrollArea { 
+                border: none; 
+                background-color: #F5F5F7; 
+                border-radius: 4px;
+            }
         """)
-        self.image_label.setScaledContents(False)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
+        # 图像标签
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setStyleSheet("background-color: transparent;")
+        self.image_label.setText("无图像")
+        
+        self.scroll_area.setWidget(self.image_label)
+        self.scroll_area.viewport().installEventFilter(self)
         
         layout.addWidget(self.title_label)
-        layout.addWidget(self.image_label, 1)
+        layout.addWidget(self.scroll_area, 1)
     
     def set_image(self, image: np.ndarray):
         """设置图像"""
         if image is None:
+            self.original_pixmap = None
+            self.image_label.clear()
             self.image_label.setText("无图像")
+            self.scroll_area.setWidgetResizable(True)
             return
         
         # BGR转RGB
@@ -82,27 +107,111 @@ class ImageStageWidget(QFrame):
         else:
             q_image = QImage(rgb_image.data, w, h, w, QImage.Format_Grayscale8)
         
-        pixmap = QPixmap.fromImage(q_image.copy())
-        self.original_pixmap = pixmap
+        self.original_pixmap = QPixmap.fromImage(q_image.copy())
+        self.scale_factor = 1.0
+        self._fit_to_view()
+    
+    def _fit_to_view(self):
+        """适应视图大小"""
+        if self.original_pixmap is None:
+            return
         
-        # 缩放适应标签大小
-        scaled_pixmap = pixmap.scaled(
-            self.image_label.size(),
+        self.scroll_area.setWidgetResizable(False)
+        view_size = self.scroll_area.viewport().size()
+        img_size = self.original_pixmap.size()
+        
+        if img_size.width() > 0 and img_size.height() > 0:
+            scale_x = view_size.width() / img_size.width()
+            scale_y = view_size.height() / img_size.height()
+            self.scale_factor = min(scale_x, scale_y, 1.0)
+        
+        self._update_display()
+    
+    def _update_display(self):
+        """更新显示"""
+        if self.original_pixmap is None:
+            return
+        
+        scaled_size = self.original_pixmap.size() * self.scale_factor
+        scaled_pixmap = self.original_pixmap.scaled(
+            scaled_size,
             Qt.KeepAspectRatio,
             Qt.SmoothTransformation
         )
+        
         self.image_label.setPixmap(scaled_pixmap)
+        self.image_label.resize(scaled_pixmap.size())
+    
+    def eventFilter(self, obj, event):
+        """事件过滤器"""
+        if obj == self.scroll_area.viewport():
+            if event.type() == event.Wheel:
+                return self._handle_wheel(event)
+            elif event.type() == event.MouseButtonPress:
+                return self._handle_mouse_press(event)
+            elif event.type() == event.MouseMove:
+                return self._handle_mouse_move(event)
+            elif event.type() == event.MouseButtonRelease:
+                return self._handle_mouse_release(event)
+            elif event.type() == event.MouseButtonDblClick:
+                self._fit_to_view()
+                return True
+        return super().eventFilter(obj, event)
+    
+    def _handle_wheel(self, event: QWheelEvent) -> bool:
+        """处理滚轮事件 - Ctrl+滚轮缩放"""
+        if event.modifiers() == Qt.ControlModifier and self.original_pixmap:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                new_scale = self.scale_factor * 1.15
+            else:
+                new_scale = self.scale_factor / 1.15
+            
+            self.scale_factor = max(self.min_scale, min(self.max_scale, new_scale))
+            self._update_display()
+            return True
+        return False
+    
+    def _handle_mouse_press(self, event: QMouseEvent) -> bool:
+        """处理鼠标按下 - 开始拖拽"""
+        if event.button() == Qt.LeftButton:
+            self.dragging = True
+            self.last_pos = event.pos()
+            self.scroll_area.viewport().setCursor(Qt.ClosedHandCursor)
+            return True
+        return False
+    
+    def _handle_mouse_move(self, event: QMouseEvent) -> bool:
+        """处理鼠标移动 - 拖拽平移"""
+        if self.dragging:
+            delta = event.pos() - self.last_pos
+            self.last_pos = event.pos()
+            
+            h_bar = self.scroll_area.horizontalScrollBar()
+            v_bar = self.scroll_area.verticalScrollBar()
+            h_bar.setValue(h_bar.value() - delta.x())
+            v_bar.setValue(v_bar.value() - delta.y())
+            return True
+        return False
+    
+    def _handle_mouse_release(self, event: QMouseEvent) -> bool:
+        """处理鼠标释放"""
+        if event.button() == Qt.LeftButton:
+            self.dragging = False
+            self.scroll_area.viewport().setCursor(Qt.ArrowCursor)
+            return True
+        return False
     
     def resizeEvent(self, event):
-        """调整大小时重新缩放图像"""
+        """调整大小时重新适应"""
         super().resizeEvent(event)
-        if self.original_pixmap:
-            scaled_pixmap = self.original_pixmap.scaled(
-                self.image_label.size(),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
-            )
-            self.image_label.setPixmap(scaled_pixmap)
+        if self.original_pixmap and self.scale_factor <= 1.0:
+            self._fit_to_view()
+    
+    def showEvent(self, event):
+        """显示时更新图像"""
+        super().showEvent(event)
+        QTimer.singleShot(50, self._fit_to_view)
 
 
 class VisualizationDialog(QDialog):
@@ -125,8 +234,11 @@ class VisualizationDialog(QDialog):
     
     def _init_ui(self):
         self.setWindowTitle("处理过程可视化")
-        self.setMinimumSize(900, 650)
-        self.resize(1000, 700)
+        # 移除右上角的问号帮助按钮
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        
+        self.setMinimumSize(1000, 700)
+        self.resize(1200, 800)
         
         # 设置样式
         self.setStyleSheet("""
@@ -161,16 +273,19 @@ class VisualizationDialog(QDialog):
         self.stats_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.stats_label)
         
-        # 滚动区域包裹网格
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
-        
-        scroll_content = QWidget()
-        grid_layout = QGridLayout(scroll_content)
+        # 网格布局（不用滚动区域，直接让图像随窗口缩放）
+        grid_widget = QWidget()
+        grid_layout = QGridLayout(grid_widget)
         grid_layout.setSpacing(15)
         
-        # 创建5个阶段的显示组件（2行3列布局，最后一格空着或放说明）
+        # 设置列伸展因子，让各列均匀分配空间
+        grid_layout.setColumnStretch(0, 1)
+        grid_layout.setColumnStretch(1, 1)
+        grid_layout.setColumnStretch(2, 1)
+        grid_layout.setRowStretch(0, 1)
+        grid_layout.setRowStretch(1, 1)
+        
+        # 创建5个阶段的显示组件（2行3列布局，最后一格放说明）
         stage_configs = [
             ("original", "1. 原始图像", 0, 0),
             ("gamma", "2. Gamma校正", 0, 1),
@@ -181,7 +296,7 @@ class VisualizationDialog(QDialog):
         
         self.stage_widgets = {}
         for key, title, row, col in stage_configs:
-            widget = ImageStageWidget(title)
+            widget = ZoomableStageWidget(title)
             self.stage_widgets[key] = widget
             grid_layout.addWidget(widget, row, col)
         
@@ -189,8 +304,7 @@ class VisualizationDialog(QDialog):
         legend_widget = self._create_legend_widget()
         grid_layout.addWidget(legend_widget, 1, 2)
         
-        scroll_area.setWidget(scroll_content)
-        layout.addWidget(scroll_area, 1)
+        layout.addWidget(grid_widget, 1)
         
         # 关闭按钮
         btn_layout = QHBoxLayout()
@@ -227,16 +341,20 @@ class VisualizationDialog(QDialog):
                 border-radius: 8px;
             }
         """)
+        widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        widget.setMinimumSize(250, 200)
         
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(12)
         
-        # 标题
-        title = QLabel("图例说明")
-        title.setStyleSheet("font-weight: bold; font-size: 13px; color: #1D1D1F;")
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
+        # 标题（保存引用用于动态调整）
+        self.legend_title = QLabel("图例说明")
+        self.legend_title.setStyleSheet("font-weight: bold; font-size: 15px; color: #1D1D1F;")
+        self.legend_title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.legend_title)
+        
+        layout.addSpacing(10)
         
         # 图例项
         legends = [
@@ -245,19 +363,23 @@ class VisualizationDialog(QDialog):
             ("#FF3D00", "未能匹配"),
         ]
         
+        self.legend_labels = []
+        self.legend_dots = []
         for color, text in legends:
             row = QHBoxLayout()
-            row.setSpacing(10)
+            row.setSpacing(12)
             
             dot = QLabel()
-            dot.setFixedSize(16, 16)
+            dot.setFixedSize(18, 18)
             dot.setStyleSheet(f"""
                 background-color: {color};
-                border-radius: 8px;
+                border-radius: 9px;
             """)
+            self.legend_dots.append(dot)
             
             label = QLabel(text)
-            label.setStyleSheet("font-size: 13px; color: #333333;")
+            label.setStyleSheet("font-size: 14px; color: #333333;")
+            self.legend_labels.append(label)
             
             row.addWidget(dot)
             row.addWidget(label)
@@ -268,12 +390,42 @@ class VisualizationDialog(QDialog):
         layout.addStretch()
         
         # 处理流程说明
-        flow_label = QLabel("处理流程：\n原图 → Gamma校正 → CLAHE增强 → 人脸检测 → 特征匹配 → 结果标注")
-        flow_label.setStyleSheet("font-size: 11px; color: #86868B;")
-        flow_label.setWordWrap(True)
-        layout.addWidget(flow_label)
+        self.flow_label = QLabel("处理流程：\n原图 → Gamma校正 → CLAHE增强\n→ 人脸检测 → 特征匹配 → 结果标注")
+        self.flow_label.setStyleSheet("font-size: 12px; color: #86868B;")
+        self.flow_label.setWordWrap(True)
+        layout.addWidget(self.flow_label)
         
         return widget
+    
+    def _update_legend_font_size(self):
+        """根据窗口大小更新图例文字大小"""
+        # 获取窗口宽度，计算基础字号
+        width = self.width()
+        base_size = max(11, min(16, int(width / 80)))
+        
+        # 更新标题
+        if hasattr(self, 'legend_title'):
+            self.legend_title.setStyleSheet(f"font-weight: bold; font-size: {base_size + 2}px; color: #1D1D1F;")
+        
+        # 更新图例标签
+        if hasattr(self, 'legend_labels'):
+            for label in self.legend_labels:
+                label.setStyleSheet(f"font-size: {base_size + 1}px; color: #333333;")
+        
+        # 更新流程说明
+        if hasattr(self, 'flow_label'):
+            self.flow_label.setStyleSheet(f"font-size: {base_size}px; color: #86868B;")
+        
+        # 更新圆点大小
+        if hasattr(self, 'legend_dots'):
+            dot_size = max(14, min(22, base_size + 4))
+            colors = ["#00C853", "#FFD600", "#FF3D00"]
+            for i, dot in enumerate(self.legend_dots):
+                dot.setFixedSize(dot_size, dot_size)
+                dot.setStyleSheet(f"""
+                    background-color: {colors[i]};
+                    border-radius: {dot_size // 2}px;
+                """)
     
     def set_stages(self, stages: dict, stats: dict):
         """
@@ -302,10 +454,29 @@ class VisualizationDialog(QDialog):
             else:
                 widget.set_image(None)
     
+    def showEvent(self, event):
+        """显示时更新所有图像和字体"""
+        super().showEvent(event)
+        # 延迟更新所有图像和字体，确保布局完成
+        QTimer.singleShot(100, self._refresh_all_images)
+        QTimer.singleShot(100, self._update_legend_font_size)
+    
+    def resizeEvent(self, event):
+        """窗口大小改变时更新所有图像和字体"""
+        super().resizeEvent(event)
+        self._refresh_all_images()
+        self._update_legend_font_size()
+    
+    def _refresh_all_images(self):
+        """刷新所有阶段图像"""
+        for widget in self.stage_widgets.values():
+            # 只有当用户没有手动缩放时才自动适应
+            if widget.scale_factor <= 1.0:
+                widget._fit_to_view()
+    
     @staticmethod
     def show_stages(stages: dict, stats: dict, parent=None):
         """静态方法：显示可视化弹窗"""
         dialog = VisualizationDialog(parent)
         dialog.set_stages(stages, stats)
         dialog.exec_()
-

@@ -42,17 +42,23 @@ class ZoomableImageLabel(QWidget):
         
         # 滚动区域
         self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(False)
+        self.scroll_area.setWidgetResizable(True)  # 默认填充，加载图片后改为False
         self.scroll_area.setAlignment(Qt.AlignCenter)
-        self.scroll_area.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+        self.scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #F2F2F7; border-radius: 8px; }")
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         
         # 图像标签
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self.image_label.setStyleSheet("background-color: transparent;")
+        self.image_label.setWordWrap(True)
+        self.image_label.setStyleSheet("""
+            background-color: #F2F2F7;
+            color: #86868B;
+            font-size: 13px;
+            border-radius: 8px;
+            padding: 20px;
+        """)
         
         self.scroll_area.setWidget(self.image_label)
         layout.addWidget(self.scroll_area)
@@ -71,6 +77,14 @@ class ZoomableImageLabel(QWidget):
             self.original_pixmap = None
             self.image_label.clear()
             self.image_label.setText("未加载")
+            self.scroll_area.setWidgetResizable(True)  # 无图时让标签填充
+            self.image_label.setStyleSheet("""
+                background-color: #F2F2F7;
+                color: #86868B;
+                font-size: 13px;
+                border-radius: 8px;
+                padding: 20px;
+            """)
             return
         
         if isinstance(image, np.ndarray):
@@ -113,12 +127,24 @@ class ZoomableImageLabel(QWidget):
     def set_placeholder_text(self, text: str):
         """设置占位文本"""
         if self.original_pixmap is None:
+            self.scroll_area.setWidgetResizable(True)
+            self.image_label.setStyleSheet("""
+                background-color: #F2F2F7;
+                color: #86868B;
+                font-size: 13px;
+                border-radius: 8px;
+                padding: 20px;
+            """)
             self.image_label.setText(text)
     
     def _update_display(self):
         """更新显示"""
         if self.original_pixmap is None:
             return
+        
+        # 有图片时关闭自动填充，允许手动控制尺寸
+        self.scroll_area.setWidgetResizable(False)
+        self.image_label.setStyleSheet("background-color: transparent;")
         
         # 计算缩放后的尺寸
         scaled_size = self.original_pixmap.size() * self.scale_factor

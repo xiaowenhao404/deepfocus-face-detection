@@ -257,17 +257,28 @@ class MainWindowPro(QMainWindow):
         
         # 目标翻页导航
         nav_layout = QHBoxLayout()
+        nav_btn_style = """
+            QPushButton {
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0px;
+            }
+        """
+        
         self.btn_target_prev = QPushButton("<")
-        self.btn_target_prev.setFixedSize(32, 28)
+        self.btn_target_prev.setFixedSize(36, 28)
+        self.btn_target_prev.setStyleSheet(nav_btn_style)
         self.btn_target_prev.clicked.connect(self.prev_target)
         self.btn_target_prev.setEnabled(False)
         
         self.lbl_target_nav = QLabel("0/0")
         self.lbl_target_nav.setAlignment(Qt.AlignCenter)
+        self.lbl_target_nav.setMinimumWidth(40)
         self.lbl_target_nav.setStyleSheet("color: #86868B; font-size: 13px;")
         
         self.btn_target_next = QPushButton(">")
-        self.btn_target_next.setFixedSize(32, 28)
+        self.btn_target_next.setFixedSize(36, 28)
+        self.btn_target_next.setStyleSheet(nav_btn_style)
         self.btn_target_next.clicked.connect(self.next_target)
         self.btn_target_next.setEnabled(False)
         
@@ -279,22 +290,35 @@ class MainWindowPro(QMainWindow):
         layout.addLayout(nav_layout)
         
         # 按钮行
+        # 按钮样式（紧凑型）
+        compact_btn_style = """
+            QPushButton {
+                padding: 6px 8px;
+                font-size: 12px;
+            }
+        """
+        
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(6)
+        
         self.btn_load_target = QPushButton("选择目标")
+        self.btn_load_target.setStyleSheet(compact_btn_style)
         self.btn_load_target.clicked.connect(self.load_target_image)
         
         self.btn_add_target = QPushButton("添加更多")
+        self.btn_add_target.setStyleSheet(compact_btn_style)
         self.btn_add_target.clicked.connect(self.add_target_image)
         self.btn_add_target.setEnabled(False)
         
         self.btn_clear_target = QPushButton("清空")
+        self.btn_clear_target.setStyleSheet(compact_btn_style)
+        self.btn_clear_target.setFixedWidth(50)
         self.btn_clear_target.clicked.connect(self.clear_targets)
         self.btn_clear_target.setEnabled(False)
-        self.btn_clear_target.setFixedWidth(60)
         
-        btn_layout.addWidget(self.btn_load_target)
-        btn_layout.addWidget(self.btn_add_target)
-        btn_layout.addWidget(self.btn_clear_target)
+        btn_layout.addWidget(self.btn_load_target, 1)  # 伸展
+        btn_layout.addWidget(self.btn_add_target, 1)   # 伸展
+        btn_layout.addWidget(self.btn_clear_target, 0) # 固定
         layout.addLayout(btn_layout)
         
         # 特征信息
@@ -430,7 +454,7 @@ class MainWindowPro(QMainWindow):
         
         # 批量导入识别按钮
         self.btn_batch = QPushButton("批量导入识别")
-        self.btn_batch.setFixedSize(120, 36)
+        self.btn_batch.setFixedSize(130, 36)
         self.btn_batch.clicked.connect(self.batch_process)
         self.btn_batch.setEnabled(False)
         
@@ -453,8 +477,17 @@ class MainWindowPro(QMainWindow):
         
         layout.addStretch()
         
+        scene_nav_btn_style = """
+            QPushButton {
+                font-size: 14px;
+                font-weight: bold;
+                padding: 0px;
+            }
+        """
+        
         self.btn_scene_prev = QPushButton("<")
         self.btn_scene_prev.setFixedSize(36, 28)
+        self.btn_scene_prev.setStyleSheet(scene_nav_btn_style)
         self.btn_scene_prev.clicked.connect(self.prev_scene)
         self.btn_scene_prev.setEnabled(False)
         
@@ -465,6 +498,7 @@ class MainWindowPro(QMainWindow):
         
         self.btn_scene_next = QPushButton(">")
         self.btn_scene_next.setFixedSize(36, 28)
+        self.btn_scene_next.setStyleSheet(scene_nav_btn_style)
         self.btn_scene_next.clicked.connect(self.next_scene)
         self.btn_scene_next.setEnabled(False)
         

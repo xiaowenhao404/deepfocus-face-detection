@@ -1,0 +1,369 @@
+/* 
+ * DeepFocus macOS 风格样式表
+ * 参考 Apple Human Interface Guidelines
+ */
+
+/* ==================== 全局设定：字体与背景 ==================== */
+QMainWindow {
+    background-color: #F5F5F7; /* Apple 浅灰背景 */
+}
+
+QWidget {
+    font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    font-size: 13px;
+    color: #333333;
+}
+
+/* ==================== 侧边栏容器 ==================== */
+QFrame#SideBar {
+    background-color: #FFFFFF;
+    border-right: 1px solid #E5E5E5;
+    min-width: 320px;
+    max-width: 320px;
+}
+
+/* ==================== 分组框：卡片式设计 ==================== */
+QGroupBox {
+    border: 1px solid #E5E5E5;
+    border-radius: 10px;
+    margin-top: 10px;
+    padding-top: 20px;
+    background-color: #FFFFFF;
+    font-weight: bold;
+    color: #1D1D1F;
+    font-size: 14px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 10px;
+    padding: 0 5px;
+    background-color: transparent;
+}
+
+/* ==================== 按钮：Apple 风格 ==================== */
+QPushButton {
+    background-color: #FFFFFF;
+    border: 1px solid #D1D1D6;
+    border-radius: 6px;
+    padding: 8px 16px;
+    color: #1D1D1F;
+    font-weight: 500;
+    font-size: 14px;
+    min-height: 32px;
+}
+
+QPushButton:hover {
+    background-color: #F5F5F7;
+    border-color: #007AFF; /* 悬停时显示 Apple Blue */
+    color: #007AFF;
+}
+
+QPushButton:pressed {
+    background-color: #E5E5EA;
+}
+
+QPushButton:disabled {
+    background-color: #F2F2F7;
+    color: #AEAEB2;
+    border-color: #E5E5EA;
+}
+
+/* ==================== 主操作按钮（蓝色强调） ==================== */
+QPushButton#PrimaryButton {
+    background-color: #007AFF;
+    color: #FFFFFF;
+    border: none;
+    font-weight: 600;
+}
+
+QPushButton#PrimaryButton:hover {
+    background-color: #0062CC;
+}
+
+QPushButton#PrimaryButton:pressed {
+    background-color: #0051A8;
+}
+
+QPushButton#PrimaryButton:disabled {
+    background-color: #C7C7CC;
+    color: #FFFFFF;
+}
+
+/* ==================== 图片显示区 ==================== */
+QLabel#ImageDisplay {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E5E5;
+    border-radius: 12px;
+    color: #86868B;
+    padding: 10px;
+}
+
+/* ==================== 进度条 ==================== */
+QProgressBar {
+    border: none;
+    background-color: #E5E5EA;
+    border-radius: 4px;
+    height: 6px;
+    text-align: center;
+    color: #1D1D1F;
+}
+
+QProgressBar::chunk {
+    background-color: #007AFF;
+    border-radius: 4px;
+}
+
+/* ==================== 滑块 ==================== */
+QSlider::groove:horizontal {
+    border: 1px solid #E5E5EA;
+    height: 4px;
+    background: #E5E5EA;
+    margin: 2px 0;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background: #FFFFFF;
+    border: 1px solid #D1D1D6;
+    width: 18px;
+    height: 18px;
+    margin: -8px 0;
+    border-radius: 9px; /* 圆形手柄 */
+}
+
+QSlider::handle:horizontal:hover {
+    border-color: #007AFF;
+    background: #F5F5F7;
+}
+
+/* ==================== 复选框 ==================== */
+QCheckBox {
+    color: #1D1D1F;
+    font-size: 13px;
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #D1D1D6;
+    border-radius: 4px;
+    background-color: #FFFFFF;
+}
+
+QCheckBox::indicator:hover {
+    border-color: #007AFF;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #007AFF;
+    border-color: #007AFF;
+    image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOSIgdmlld0JveD0iMCAwIDEyIDkiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDQuNUw0LjUgOEwxMSAxIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4=);
+}
+
+/* ==================== 单选按钮 ==================== */
+QRadioButton {
+    color: #1D1D1F;
+    font-size: 13px;
+    spacing: 8px;
+}
+
+QRadioButton::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #D1D1D6;
+    border-radius: 9px;
+    background-color: #FFFFFF;
+}
+
+QRadioButton::indicator:hover {
+    border-color: #007AFF;
+}
+
+QRadioButton::indicator:checked {
+    border-color: #007AFF;
+    background-color: #007AFF;
+}
+
+/* ==================== 文本编辑框 ==================== */
+QTextEdit {
+    border: 1px solid #E5E5E5;
+    border-radius: 8px;
+    background-color: #FFFFFF;
+    padding: 10px;
+    color: #1D1D1F;
+    font-size: 13px;
+}
+
+QTextEdit:focus {
+    border: 2px solid #007AFF;
+    background-color: #FFFFFF;
+}
+
+/* ==================== 标签 ==================== */
+QLabel {
+    color: #1D1D1F;
+    font-size: 13px;
+}
+
+/* ==================== 状态栏 ==================== */
+QStatusBar {
+    background-color: #F5F5F7;
+    color: #1D1D1F;
+    border-top: 1px solid #E5E5E5;
+    font-size: 13px;
+    padding: 6px;
+}
+
+QStatusBar::item {
+    border: none;
+}
+
+/* ==================== 分隔器 ==================== */
+QSplitter::handle {
+    background-color: #E5E5E5;
+    width: 2px;
+}
+
+QSplitter::handle:hover {
+    background-color: #007AFF;
+}
+
+/* ==================== 滚动条 ==================== */
+QScrollBar:vertical {
+    border: none;
+    background-color: #F5F5F7;
+    width: 10px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #C7C7CC;
+    min-height: 30px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #AEAEB2;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+/* ==================== 消息框 ==================== */
+QMessageBox {
+    background-color: #FFFFFF;
+}
+
+QMessageBox QLabel {
+    color: #1D1D1F;
+    font-size: 13px;
+}
+
+QMessageBox QPushButton {
+    min-width: 80px;
+    min-height: 32px;
+}
+
+/* ==================== 文件对话框 ==================== */
+QFileDialog {
+    background-color: #FFFFFF;
+}
+
+QFileDialog QPushButton {
+    min-width: 80px;
+    min-height: 28px;
+    padding: 6px 16px;
+}
+
+/* ==================== 翻页导航按钮 ==================== */
+QPushButton[text="<"],
+QPushButton[text=">"] {
+    min-width: 32px;
+    max-width: 36px;
+    min-height: 28px;
+    padding: 4px 8px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* ==================== 图例框 ==================== */
+QFrame#LegendFrame {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E5E5;
+    border-radius: 8px;
+    padding: 8px 15px;
+}
+
+/* ==================== 数据面板 ==================== */
+QFrame#DataPanel {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E5E5;
+    border-radius: 8px;
+    padding: 8px 15px;
+}
+
+/* ==================== 可缩放图像组件 ==================== */
+ZoomableImageLabel {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E5E5;
+    border-radius: 10px;
+}
+
+ZoomableImageLabel QScrollArea {
+    background-color: transparent;
+    border: none;
+}
+
+/* ==================== 工具提示 ==================== */
+QToolTip {
+    background-color: #1D1D1F;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* ==================== 对话框 ==================== */
+QDialog {
+    background-color: #F5F5F7;
+}
+
+/* ==================== 水平滚动条 ==================== */
+QScrollBar:horizontal {
+    border: none;
+    background-color: #F5F5F7;
+    height: 10px;
+    margin: 0px;
+}
+
+QScrollBar::handle:horizontal {
+    background-color: #C7C7CC;
+    min-width: 30px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background-color: #AEAEB2;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    background: none;
+}
+

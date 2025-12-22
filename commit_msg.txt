@@ -1,0 +1,35 @@
+feat: DeepFocus Pro v3.0 Final Release
+
+Major Changes:
+- Add YuNet+SFace engine (OpenCV DNN) for lightweight face detection
+- Add model comparison dialog for side-by-side comparison
+- Add HTML report export with charts and statistics
+- Add visualization dialog for processing stages
+- Implement unified similarity display (0-100%) across all models
+
+UI Improvements:
+- Redesign with Apple-style aesthetics (modern.qss)
+- Add drag-and-drop image upload
+- Add press-and-hold to compare original image
+- Add status pill indicator with color coding
+- Add one-click batch re-recognition
+
+Performance Optimizations:
+- Auto-scale large images for faster processing
+- Add visualization cache to avoid re-computation
+- Optimize HOG/CNN parameters based on image size
+
+Code Cleanup:
+- Remove InsightFace engine (library conflicts)
+- Remove legacy code files
+- Merge and update requirements.txt
+- Update README.md for v3.0
+
+New Files:
+- core/opencv_dnn_engine.py
+- gui/compare_dialog.py
+- gui/report_generator.py
+- gui/image_drop_label.py
+- gui/modern.qss
+- models/*.onnx
+

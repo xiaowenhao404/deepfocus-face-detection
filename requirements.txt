@@ -1,15 +1,30 @@
-# DeepFocus 项目依赖清单
-# 人脸识别与定位系统
+# DeepFocus Pro v3.0 最终版 - 依赖清单
+# 智能人脸定位系统
 
-# 核心依赖
-face-recognition>=1.3.0  # 人脸识别库（基于dlib）
-opencv-python>=4.5.0     # OpenCV图像处理库
+# ==================== 核心依赖 ====================
+face-recognition>=1.3.0  # 人脸识别库（基于dlib，提供HOG/CNN模型）
+opencv-python>=4.5.4     # OpenCV图像处理库（需要>=4.5.4支持YuNet/SFace）
 PyQt5>=5.15.0            # GUI框架
 numpy>=1.21.0            # 数值计算库
 dlib>=19.22.0            # 深度学习和机器学习库
 
-# 可选依赖（用于测试和开发）
-pytest>=7.0.0            # 单元测试框架
-black>=22.0.0            # 代码格式化工具
-mypy>=0.950              # 类型检查工具
+# ==================== 报告导出 ====================
+jinja2>=3.0.0            # HTML报告生成（导出报告功能需要）
+
+# ==================== 安装说明 ====================
+#
+# 安装命令:
+#   pip install -r requirements.txt
+#
+# 注意事项:
+# 1. dlib 在 Windows 上可能需要先安装 Visual Studio Build Tools
+# 2. 如果有 NVIDIA GPU，dlib 会自动启用 CUDA 加速（需要正确配置 CUDA 环境）
+# 3. YuNet/SFace 模型会在首次使用时自动从 models/ 目录加载
+#
+# ==================== 模型文件 ====================
+# YuNet 和 SFace 的 ONNX 模型需要放在 models/ 目录下：
+# - models/face_detection_yunet_2023mar.onnx
+# - models/face_recognition_sface_2021dec.onnx
+#
+# 可以通过运行 models/download_models.py 自动下载
 

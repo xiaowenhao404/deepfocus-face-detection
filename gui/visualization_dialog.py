@@ -22,8 +22,10 @@ class ZoomableStageWidget(QFrame):
         self.title = title
         self.original_pixmap = None
         self.scale_factor = 1.0
-        self.min_scale = 0.5
-        self.max_scale = 5.0
+        self.base_scale = 1.0  # 适应窗口的基础缩放
+        self.user_zoom = 1.0   # 用户缩放倍数（1.0表示未缩放）
+        self.min_zoom = 0.5    # 最小缩放倍数
+        self.max_zoom = 4.0    # 最大缩放倍数
         self.dragging = False
         self.last_pos = QPoint()
         self._init_ui()
@@ -108,7 +110,7 @@ class ZoomableStageWidget(QFrame):
             q_image = QImage(rgb_image.data, w, h, w, QImage.Format_Grayscale8)
         
         self.original_pixmap = QPixmap.fromImage(q_image.copy())
-        self.scale_factor = 1.0
+        self.user_zoom = 1.0  # 重置用户缩放
         self._fit_to_view()
     
     def _fit_to_view(self):
@@ -123,7 +125,10 @@ class ZoomableStageWidget(QFrame):
         if img_size.width() > 0 and img_size.height() > 0:
             scale_x = view_size.width() / img_size.width()
             scale_y = view_size.height() / img_size.height()
-            self.scale_factor = min(scale_x, scale_y, 1.0)
+            # 计算基础缩放（让图片适应窗口）
+            self.base_scale = min(scale_x, scale_y, 1.0)
+            # 最终缩放 = 基础缩放 * 用户缩放
+            self.scale_factor = self.base_scale * self.user_zoom
         
         self._update_display()
     
@@ -154,6 +159,8 @@ class ZoomableStageWidget(QFrame):
             elif event.type() == event.MouseButtonRelease:
                 return self._handle_mouse_release(event)
             elif event.type() == event.MouseButtonDblClick:
+                # 双击重置缩放
+                self.user_zoom = 1.0
                 self._fit_to_view()
                 return True
         return super().eventFilter(obj, event)
@@ -162,12 +169,17 @@ class ZoomableStageWidget(QFrame):
         """处理滚轮事件 - Ctrl+滚轮缩放"""
         if event.modifiers() == Qt.ControlModifier and self.original_pixmap:
             delta = event.angleDelta().y()
+            # 使用更平滑的缩放步进
+            zoom_step = 1.1
             if delta > 0:
-                new_scale = self.scale_factor * 1.15
+                new_zoom = self.user_zoom * zoom_step
             else:
-                new_scale = self.scale_factor / 1.15
+                new_zoom = self.user_zoom / zoom_step
             
-            self.scale_factor = max(self.min_scale, min(self.max_scale, new_scale))
+            # 限制用户缩放范围
+            self.user_zoom = max(self.min_zoom, min(self.max_zoom, new_zoom))
+            # 更新最终缩放因子
+            self.scale_factor = self.base_scale * self.user_zoom
             self._update_display()
             return True
         return False
@@ -205,7 +217,8 @@ class ZoomableStageWidget(QFrame):
     def resizeEvent(self, event):
         """调整大小时重新适应"""
         super().resizeEvent(event)
-        if self.original_pixmap and self.scale_factor <= 1.0:
+        if self.original_pixmap:
+            # 窗口调整时重新计算基础缩放
             self._fit_to_view()
     
     def showEvent(self, event):
@@ -234,8 +247,13 @@ class VisualizationDialog(QDialog):
     
     def _init_ui(self):
         self.setWindowTitle("处理过程可视化")
-        # 移除右上角的问号帮助按钮
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        # 添加最大化/最小化按钮，移除帮助按钮
+        self.setWindowFlags(
+            self.windowFlags() 
+            & ~Qt.WindowContextHelpButtonHint 
+            | Qt.WindowMaximizeButtonHint 
+            | Qt.WindowMinimizeButtonHint
+        )
         
         self.setMinimumSize(1000, 700)
         self.resize(1200, 800)
@@ -470,8 +488,7 @@ class VisualizationDialog(QDialog):
     def _refresh_all_images(self):
         """刷新所有阶段图像"""
         for widget in self.stage_widgets.values():
-            # 只有当用户没有手动缩放时才自动适应
-            if widget.scale_factor <= 1.0:
+            if widget.original_pixmap:
                 widget._fit_to_view()
     
     @staticmethod

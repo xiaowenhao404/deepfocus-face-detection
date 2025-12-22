@@ -1,11 +1,16 @@
 """
-DeepFocus Pro v2.0 - 增强版主程序入口
+DeepFocus Pro v2.1 - 增强版主程序入口
 
 使用FaceEnginePro和macOS风格界面
 支持多目标照片、批量处理、可缩放查看、处理过程可视化
+v2.1新增：GPU/CUDA检测、CNN参数优化、性能统计
 """
 
+import os
 import sys
+
+# ==================== 正常导入 ====================
+
 import logging
 from pathlib import Path
 
@@ -52,7 +57,6 @@ def check_dependencies():
     required_modules = [
         ('cv2', 'opencv-python'),
         ('numpy', 'numpy'),
-        ('face_recognition', 'face-recognition'),
         ('PyQt5', 'PyQt5'),
     ]
     
@@ -64,6 +68,34 @@ def check_dependencies():
         except ImportError:
             missing.append(package_name)
             logging.error(f"[MISSING] 依赖缺失: {package_name}")
+    
+    # 单独检查 face_recognition（可能有 CUDA 相关错误）
+    try:
+        # 尝试导入 face_recognition，捕获 CUDA 错误
+        import face_recognition
+        logging.info("[OK] 依赖检查通过: face-recognition")
+    except RuntimeError as e:
+        if "CUDA" in str(e) or "cuda" in str(e):
+            # dlib CUDA 错误 - 尝试使用纯 CPU 版本
+            logging.warning(f"[警告] face-recognition CUDA 错误: {e}")
+            logging.warning("[警告] 将尝试以 CPU 模式运行（可能需要重新安装 dlib CPU 版本）")
+            # 不阻止程序运行，让后续代码处理
+            print("\n" + "="*50)
+            print("警告：检测到 dlib CUDA 错误")
+            print("="*50)
+            print(f"\n错误信息: {e}")
+            print("\n建议解决方案:")
+            print("  1. 安装 CPU 版本的 dlib:")
+            print("     pip uninstall dlib")
+            print("     pip install dlib --no-cache-dir")
+            print("\n  2. 或者主要使用 YuNet 模型（不依赖 dlib）")
+            print("="*50 + "\n")
+            # 仍然返回 True，让用户可以使用 YuNet
+        else:
+            raise
+    except ImportError:
+        missing.append('face-recognition')
+        logging.error("[MISSING] 依赖缺失: face-recognition")
     
     if missing:
         print("\n" + "="*50)

@@ -1,17 +1,3 @@
----
-name: DeepFocus 项目规划
-overview: 创建README.md项目蓝图和DEV_PLAN.md开发计划，为人脸识别与定位应用建立完整的开发框架和任务清单。
-todos:
-  - id: create-readme
-    content: 创建README.md项目蓝图文档，包含完整目录结构和模块说明
-    status: completed
-  - id: create-devplan
-    content: 创建DEV_PLAN.md开发计划，包含所有版本任务和AI提示词
-    status: completed
-    dependencies:
-      - create-readme
----
-
 # DeepFocus 人脸识别与定位系统 - 项目规划蓝图
 
 ## 概述
@@ -53,6 +39,8 @@ graph TB
 ```
 
 
+
+
 ## README.md 蓝图结构
 
 ### 包含内容
@@ -67,7 +55,7 @@ graph TB
 
 ### 目录结构规划
 
-```
+```javascript
 DeepFocus/
 ├── main.py                      # 应用程序入口
 ├── config.py                    # 全局配置文件
@@ -106,6 +94,8 @@ DeepFocus/
 └── Reference/                   # 参考资料
     └── 技术实现深度思路.md
 ```
+
+
 
 ## DEV_PLAN.md 版本规划
 
@@ -211,5 +201,3 @@ DeepFocus/
 ## 下一步行动
 
 1. ✅ 创建 [README.md](README.md) - 完整的项目蓝图文档
-2. ✅ 创建 [DEV_PLAN.md](DEV_PLAN.md) - 详细的开发计划和任务清单
-3. 等待确认后开始执行开发任务

@@ -128,7 +128,7 @@ def batch_compare(
 
 def compute_confidence(distance: float, tolerance: float = 0.45) -> float:
     """
-    将欧氏距离转换为置信度百分比
+    将欧氏距离转换为置信度百分比（旧版兼容）
     
     置信度表示匹配的可信程度，值越大表示越确信是同一人。
     
@@ -169,6 +169,98 @@ def compute_confidence(distance: float, tolerance: float = 0.45) -> float:
     
     # 限制范围 [0, 100]
     return min(100.0, max(0.0, confidence))
+
+
+def distance_to_similarity(distance: float, method: str = 'euclidean') -> float:
+    """
+    将距离统一转换为相似度百分比（0~100%）
+    
+    用于横向比较不同模型的匹配结果。
+    
+    Args:
+        distance: 距离值
+            - 对于 'euclidean' (dlib HOG/CNN): 欧氏距离，范围约 0~1.2
+            - 对于 'cosine_dist' (YuNet SFace): 已转换的余弦距离，范围 0~1
+        method: 距离类型
+            - 'euclidean': dlib 欧氏距离
+            - 'cosine_dist': 由余弦相似度转换的距离
+            
+    Returns:
+        float: 相似度百分比，范围 0.0 ~ 100.0
+            - 100%: 完全相同
+            - 70%+: 很可能是同一人
+            - 50%~70%: 可能是同一人
+            - <50%: 不太可能
+    
+    Examples:
+        >>> # dlib 完美匹配
+        >>> sim = distance_to_similarity(0.0, 'euclidean')
+        >>> print(f"{sim:.1f}%")  # 100.0%
+        
+        >>> # dlib 典型匹配 (distance=0.35)
+        >>> sim = distance_to_similarity(0.35, 'euclidean')
+        >>> print(f"{sim:.1f}%")  # ~71%
+    """
+    if method == 'euclidean':
+        # dlib 欧氏距离转相似度
+        # 距离范围约 0~1.2，使用非线性映射让结果更直观
+        # distance=0 -> 100%, distance=0.5 -> 50%, distance>=1.0 -> 0%
+        if distance <= 0:
+            return 100.0
+        elif distance >= 1.0:
+            return 0.0
+        else:
+            # 使用平滑曲线：similarity = (1 - distance)^0.8 * 100
+            # 让低距离时相似度更高，更符合直觉
+            similarity = (1.0 - distance) ** 0.8 * 100
+            return min(100.0, max(0.0, similarity))
+    
+    elif method == 'cosine_dist':
+        # YuNet 余弦距离转相似度
+        # 距离 = (1 - cosine_similarity) / 2，范围 0~1
+        # 反转回相似度
+        if distance <= 0:
+            return 100.0
+        elif distance >= 1.0:
+            return 0.0
+        else:
+            # 距离转回余弦相似度：sim = 1 - 2*distance
+            # 然后映射到 0~100%
+            cosine_sim = 1.0 - 2.0 * distance
+            # 余弦相似度范围 -1~1，归一化到 0~100
+            # -1 -> 0%, 0 -> 50%, 1 -> 100%
+            similarity = (cosine_sim + 1.0) / 2.0 * 100
+            return min(100.0, max(0.0, similarity))
+    
+    else:
+        # 默认线性转换
+        return max(0.0, (1.0 - distance) * 100)
+
+
+def cosine_similarity_to_percent(cosine_sim: float) -> float:
+    """
+    将余弦相似度直接转换为百分比
+    
+    专门用于 SFace 等使用余弦相似度的模型。
+    
+    Args:
+        cosine_sim: 余弦相似度，范围 -1 ~ 1
+        
+    Returns:
+        float: 相似度百分比，范围 0.0 ~ 100.0
+            - 余弦相似度 1.0 -> 100%
+            - 余弦相似度 0.5 -> 75%
+            - 余弦相似度 0.0 -> 50%
+            - 余弦相似度 -1.0 -> 0%
+            
+    Examples:
+        >>> # YuNet 典型匹配 (cosine_sim=0.42)
+        >>> sim = cosine_similarity_to_percent(0.42)
+        >>> print(f"{sim:.1f}%")  # 71.0%
+    """
+    # 将 [-1, 1] 映射到 [0, 100]
+    similarity = (cosine_sim + 1.0) / 2.0 * 100
+    return min(100.0, max(0.0, similarity))
 
 
 def find_best_match(

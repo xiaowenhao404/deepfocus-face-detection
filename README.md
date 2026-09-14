@@ -1,298 +1,197 @@
-# DeepFocus Pro v3.0 - 智能人脸定位系统（最终版）
+# DeepFocus
 
-<div align="center">
+**English** | [简体中文](README.zh-CN.md)
 
-![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
-![Version](https://img.shields.io/badge/version-3.0-orange.svg)
+A PyQt5 desktop tool that locates one specific person's face inside crowded scene photos, using three interchangeable detection and recognition engines.
 
-**基于深度学习的智能人脸识别与定位系统**
-
-[功能特性](#功能特性) • [快速开始](#快速开始) • [使用指南](#使用指南) • [技术架构](#技术架构)
-
-</div>
+![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![PyQt5](https://img.shields.io/badge/PyQt5-%E2%89%A55.15-41CD52)
+![OpenCV](https://img.shields.io/badge/OpenCV-%E2%89%A54.5.4-5C3EE8)
+![dlib](https://img.shields.io/badge/dlib-%E2%89%A519.22-orange)
 
 ---
 
-## 📋 项目简介
+## Overview
 
-DeepFocus Pro 是一个面向数字图像处理课程设计的人脸识别与定位应用，能够从复杂场景（如教室环境）中精确识别并定位目标人脸。系统采用多种深度学习技术，提供准确可靠的人脸识别能力。
+Given one or more reference photos of a target person, DeepFocus scans scene images (group photos, classroom shots) and marks every face, highlighting the ones that match the target with a similarity score.
 
-### 应用场景
+The interesting part is not the recognition itself — it is that three very different backends (dlib HOG+SVM, dlib MMOD CNN, and OpenCV DNN running YuNet + SFace ONNX) sit behind one call surface, so the same UI, the same worker threads, the same preprocessing controls and the same report pipeline drive all of them. That makes the engines directly comparable: a built-in compare window runs two or three of them on the same image in parallel and shows the results side by side.
 
-- 📸 **教室场景识别**：从多人教室照片中定位特定学生
-- 🎯 **目标人脸搜索**：在大图中快速检索目标人物
-- 📊 **批量图像处理**：一次性处理多张场景图像
-- 📄 **识别报告导出**：生成美观的HTML识别报告
+The whole application is offline and CPU-capable; CUDA is used only if the installed dlib was built with it.
 
-### 项目特点
+## Key Features
 
-- ✅ **多引擎支持**：HOG快速检测、CNN高精度检测、YuNet轻量级检测
-- ✅ **GPU加速**：CNN模式支持CUDA加速
-- ✅ **现代界面**：macOS风格的PyQt5图形界面
-- ✅ **可视化处理**：查看完整的图像处理过程
-- ✅ **模型对比**：同时对比多个模型的识别效果
-- ✅ **HTML报告**：导出美观的识别结果报告
+- **Three interchangeable engines** selected by radio button at runtime — dlib HOG+SVM, dlib MMOD CNN, and OpenCV `FaceDetectorYN` (YuNet) + `FaceRecognizerSF` (SFace), all producing 128-dimensional embeddings.
+- **Target-side augmentation**: each reference photo yields up to 5 embeddings (original, horizontal flip, ±10° rotation, gamma-0.6 brightening), each extracted with `num_jitters=5`; a scene face is scored on the minimum distance over the whole bank.
+- **Four QThread workers** (single, batch, stage-visualization, per-model comparison) keep the event loop free and stream 0–100 progress back through Qt signals.
+- **Tunable preprocessing chain** — gamma LUT (0.30–1.50) followed by CLAHE on the LAB L-channel (clip limit 2.0, 8×8 tiles), with a stage viewer that renders the 5 intermediate images (`original`, `gamma`, `clahe`, `detection`, `final`).
+- **Size-adaptive detection**: images above 1500 px (HOG) or 2000 px (CNN) are downscaled before detection and box coordinates are mapped back to full resolution, with the upsample factor derived from the image's longest side.
+- **Self-contained HTML report** via Jinja2, embedding every crop as a base64 JPEG and rendering a Chart.js 4.4.1 doughnut plus bar chart of match statistics.
 
----
+## Architecture
 
-## 功能特性
+```mermaid
+flowchart TD
+    subgraph UI["UI layer - PyQt5"]
+        MW["MainWindowPro"]
+        DROP["ImageDropLabel<br/>drag-drop, press-to-compare"]
+        ZOOM["ZoomableImageLabel"]
+        VIZ["VisualizationDialog"]
+        CMP["CompareDialog"]
+        RPT["ReportGenerator<br/>Jinja2 + Chart.js"]
+    end
 
-### 三大识别引擎
+    subgraph CTRL["Controller layer - QThread workers"]
+        RW["RecognitionWorker"]
+        BW["BatchWorker"]
+        VW["VisualizationWorker"]
+        MCW["ModelCompareWorker"]
+    end
 
-| 引擎 | 检测器 | 识别器 | 特点 | 适用场景 |
-|------|--------|--------|------|----------|
-| **HOG** | HOG+SVM | dlib 128D | 速度快，CPU友好 | 正脸、近距离 |
-| **CNN** | MMOD CNN | dlib 128D | 精度高，支持GPU | 侧脸、遮挡 |
-| **YuNet** | YuNet | SFace | 轻量高效，侧脸好 | 复杂场景、小脸 |
+    subgraph ENG["Engine layer - interchangeable"]
+        FE["FaceEnginePro<br/>dlib HOG / MMOD CNN"]
+        OD["OpenCVDNNEngine<br/>YuNet + SFace ONNX"]
+    end
 
-### 核心功能
+    subgraph SVC["Shared services"]
+        PRE["preprocessing.apply_clahe"]
+        MAT["matcher.distance_to_similarity"]
+        GPU["gpu_utils.get_cuda_info"]
+    end
 
-1. **图像预处理**
-   - CLAHE自适应直方图均衡化
-   - Gamma校正调节亮度
-   - 智能中文路径支持
+    MW --> DROP
+    MW --> ZOOM
+    MW --> RPT
+    MW --> CMP
+    MW -->|"_get_params()"| RW
+    MW --> BW
+    MW --> VW
+    CMP --> MCW
 
-2. **人脸检测与识别**
-   - 多人脸同时检测
-   - 128维深度特征提取
-   - 可调阈值匹配
+    MW -->|"_get_current_engine()"| FE
+    MW -->|"lazy _get_opencv_dnn_engine()"| OD
 
-3. **结果展示**
-   - 边框标注（绿色匹配/红色未匹配）
-   - 相似度百分比显示
-   - 按住对比原图功能
+    RW -->|"engine_type = dlib"| FE
+    RW -->|"engine_type = opencv_dnn"| OD
+    BW --> FE
+    BW --> OD
+    VW -->|"process_scene_with_stages()"| FE
+    MCW --> FE
+    MCW --> OD
 
-4. **批量处理**
-   - 多图批量导入识别
-   - 一键重新识别
-   - 总耗时统计
+    FE --> PRE
+    FE --> MAT
+    FE --> GPU
+    OD --> MAT
 
-5. **报告导出**
-   - HTML格式识别报告
-   - 图表可视化统计
-   - 完整参数记录
-
----
-
-## 目录结构
-
-```
-DeepFocus/
-├── main_pro.py              # 🚀 程序入口
-├── config.py                # ⚙️ 配置文件
-├── requirements.txt         # 📦 依赖清单
-├── README.md                # 📖 说明文档
-│
-├── core/                    # 🧠 核心算法
-│   ├── face_engine_pro.py   # HOG/CNN人脸引擎
-│   ├── opencv_dnn_engine.py # YuNet/SFace引擎
-│   ├── preprocessing.py     # 图像预处理
-│   ├── matcher.py           # 特征匹配
-│   └── gpu_utils.py         # GPU工具
-│
-├── gui/                     # 🖥️ 图形界面
-│   ├── main_window_pro.py   # 主窗口
-│   ├── visualization_dialog.py # 可视化对话框
-│   ├── compare_dialog.py    # 模型对比对话框
-│   ├── report_generator.py  # HTML报告生成
-│   ├── zoomable_label.py    # 缩放图像组件
-│   ├── image_drop_label.py  # 拖放图像组件
-│   ├── modern.qss           # 现代风格样式
-│   └── macos.qss            # macOS风格样式
-│
-├── models/                  # 🤖 模型文件
-│   ├── face_detection_yunet_2023mar.onnx
-│   ├── face_recognition_sface_2021dec.onnx
-│   ├── download_models.py   # 模型下载脚本
-│   └── README.md
-│
-├── Images/                  # 📸 测试图像
-├── outputs/                 # 💾 输出结果
-│   ├── results/             # 识别结果图像
-│   └── logs/                # 运行日志
-│
-└── utils/                   # 🛠️ 工具模块
+    RW -->|"result_ready, progress_updated"| MW
+    BW -->|"single_result_ready, all_finished"| MW
+    VW --> VIZ
+    MCW --> CMP
 ```
 
----
+`MainWindowPro` never drives an engine directly during processing. It reads the control panel into a plain `params` dict (`_get_params()`), resolves the active backend (`_get_current_engine()` returns `(engine, engine_type)`), and hands both to a `QThread` worker. The worker branches on `engine_type` to call the matching `process_scene()` signature, then emits `result_ready` / `error_occurred` / `progress_updated`; all image work happens off the UI thread, and the window only paints what arrives on a signal.
 
-## 快速开始
+The OpenCV DNN engine is constructed lazily on first use, because loading the SFace ONNX graph costs roughly 37 MB of I/O and most sessions never select it. Both engines expose the same target-management surface (`load_target_face`, `add_target_face`, `clear_targets`, `get_target_count`, `get_target_encoding_count`, `get_performance_stats`), so targets are pushed into both banks at load time and switching engines needs no reload.
 
-### 环境要求
+The per-scene data flow inside an engine:
 
-- **Python**: 3.9+
-- **操作系统**: Windows 10/11、macOS、Linux
-- **内存**: 8GB+
-- **GPU**（可选）: NVIDIA显卡（CUDA支持）
+```mermaid
+flowchart LR
+    IN["read image<br/>np.fromfile + cv2.imdecode"] --> GAM["gamma LUT<br/>skipped at gamma 1.0"]
+    GAM --> CLA["CLAHE on LAB L-channel"]
+    CLA --> DS["adaptive downscale<br/>HOG 1500 to 1200 px"]
+    DS --> DET["face_locations<br/>hog or cnn"]
+    DET --> RM["scale boxes back<br/>to full resolution"]
+    RM --> ENC["face_encodings<br/>128-d per face"]
+    ENC --> DIST["min distance vs<br/>target embedding bank"]
+    DIST --> SIM["distance_to_similarity"]
+    SIM --> DRAW["annotate: green best,<br/>yellow match, red miss"]
+```
 
-### 安装步骤
+When a downscale happened, boxes are divided back by `scale_factor` and embeddings are re-extracted from the **full-resolution** preprocessed image, so detection gets the speed of a small image while recognition keeps full pixel detail.
 
-#### 1. 克隆项目
+## Quick Start
+
+Requirements: Python 3.9+ and, for the dlib engines, a working C++ toolchain (Visual Studio Build Tools on Windows) or a prebuilt dlib wheel.
 
 ```bash
 git clone https://github.com/xiaowenhao404/DeepFocus.git
 cd DeepFocus
-```
 
-#### 2. 创建虚拟环境（推荐）
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # macOS / Linux
 
-```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# macOS/Linux
-python3 -m venv venv
-source venv/bin/activate
-```
-
-#### 3. 安装依赖
-
-```bash
 pip install -r requirements.txt
-```
 
-> **注意**: Windows上安装dlib可能需要Visual Studio Build Tools，或使用预编译wheel
-
-#### 4. 下载模型（YuNet引擎需要）
-
-```bash
+# Only needed if models/*.onnx are missing; both files are committed to the repo.
 python models/download_models.py
-```
 
-#### 5. 运行程序
-
-```bash
 python main_pro.py
 ```
 
----
+There are no environment variables and no API keys. Runtime defaults (log level, log and output directories, CLAHE constants, app name) live in `config.py` and are read by `main_pro.py`; logs are written to `outputs/logs/app.log` and `outputs/logs/error.log`.
 
-## 使用指南
+Typical session: load one or more target photos, pick HOG / CNN / YuNet, adjust the tolerance and gamma sliders, load a scene (button or drag-and-drop), run *Recognize*, then optionally open the stage viewer, the model-comparison window, or export the HTML report.
 
-### 基本流程
-
-1. **加载目标人脸** → 点击"选择目标"或"添加目标"
-2. **选择检测模型** → HOG（快速）/ CNN（精确）/ YuNet（轻量）
-3. **调整参数** → 阈值、上采样、CLAHE、Gamma
-4. **加载场景** → 单张或批量导入
-5. **开始识别** → 点击"识别场景"或"一键识别"
-6. **查看结果** → 按住图片对比原图，翻页查看多张结果
-7. **导出报告** → 生成HTML格式识别报告
-
-### 参数说明
-
-| 参数 | 范围 | 默认值 | 说明 |
-|------|------|--------|------|
-| 阈值 | 0.30~0.70 | 0.45 | 越小越严格 |
-| 上采样 | 0~2 | 1 | 越大检测小脸越好，但更慢 |
-| CLAHE | 开/关 | 开 | 增强对比度 |
-| Gamma | 0.5~1.5 | 1.0 | <1变暗，>1变亮 |
-| 仅显示最佳 | 开/关 | 关 | 只标注最佳匹配 |
-
-### 模型选择建议
-
-| 场景 | 推荐模型 | 阈值 | 上采样 |
-|------|----------|------|--------|
-| 近距离正脸 | HOG | 0.45 | 1 |
-| 远距离多人 | HOG | 0.40 | 2 |
-| 侧脸/遮挡 | CNN | 0.50 | 1 |
-| 轻量快速 | YuNet | 0.40 | - |
-
----
-
-## 技术架构
-
-### 系统架构
+## Project Structure
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                      用户界面层                          │
-│              PyQt5 主窗口 + macOS风格                    │
-└────────────────────┬────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────┐
-│                    控制器层                              │
-│           多线程管理 + 信号槽机制                        │
-└────────────────────┬────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────┐
-│                     引擎层                               │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │ HOG Engine  │  │ CNN Engine  │  │YuNet Engine │     │
-│  │ (dlib)      │  │ (dlib+CUDA) │  │(OpenCV DNN) │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-└─────────────────────────────────────────────────────────┘
+DeepFocus/
+├── main_pro.py                 # entry point: logging, dependency probe, QApplication bootstrap
+├── config.py                   # paths, CLAHE constants, log settings
+├── requirements.txt
+│
+├── core/                       # engine layer, no Qt imports
+│   ├── face_engine_pro.py      # FaceEnginePro: dlib HOG / MMOD CNN, augmentation, staged output
+│   ├── opencv_dnn_engine.py    # OpenCVDNNEngine: YuNet detection + SFace embeddings
+│   ├── preprocessing.py        # CLAHE, histogram equalization, gamma, denoise helpers
+│   ├── matcher.py              # distance metrics, similarity normalization, tolerance presets
+│   └── gpu_utils.py            # CUDA probe, safe-resize helpers, PerformanceTimer
+│
+├── gui/                        # UI + controller layer
+│   ├── main_window_pro.py      # MainWindowPro + RecognitionWorker / BatchWorker / VisualizationWorker
+│   ├── compare_dialog.py       # CompareDialog + ModelCompareWorker (one thread per model)
+│   ├── visualization_dialog.py # stage-by-stage viewer with synchronized zoom
+│   ├── report_generator.py     # Jinja2 HTML template + Chart.js charts
+│   ├── zoomable_label.py       # pan / zoom image widget
+│   ├── image_drop_label.py     # drag-and-drop + press-and-hold original comparison
+│   └── modern.qss              # stylesheet
+│
+├── models/                     # YuNet (~227 KB) and SFace (~37 MB) ONNX files + downloader
+├── Images/                     # sample target and scene photos
+└── outputs/                    # results and logs (git-ignored)
 ```
 
-### 核心技术
+## Design Notes
 
-| 技术 | 用途 | 说明 |
-|------|------|------|
-| dlib | HOG/CNN检测 | 基于深度学习的人脸检测 |
-| face_recognition | 特征编码 | 128维人脸特征向量 |
-| OpenCV DNN | YuNet/SFace | ONNX模型推理 |
-| PyQt5 | GUI框架 | 跨平台图形界面 |
-| jinja2 | 报告生成 | HTML模板渲染 |
+**Engine swap by duck-typed surface plus an `engine_type` tag, not an abstract base class.**
+`FaceEnginePro` and `OpenCVDNNEngine` share method names but not signatures — the dlib path takes `upsample`, `model`, `use_clahe` and `gamma`, while the YuNet path takes only `tolerance` and `best_only`, because YuNet performs its own internal scaling and the ONNX pipeline is run without CLAHE. A formal ABC would have forced a lowest-common-denominator signature and hidden those real differences. The price is visible: the same `if engine_type == "opencv_dnn": ... else: ...` branch is duplicated in `RecognitionWorker`, `BatchWorker` and `ModelCompareWorker`, so adding a fourth engine means touching all three.
 
-### 相似度计算
+**Lazy engine construction and a graceful degradation ladder.**
+dlib is imported behind a `try/except RuntimeError` that specifically catches CUDA initialization failures — a broken CUDA install would otherwise kill the app at import time on a machine where the pure-CPU YuNet path would have worked fine. Availability of each backend is probed once (`is_dlib_available()`, `is_opencv_dnn_available()`, `check_models_exist()`), unavailable radio buttons are disabled with the concrete reason in their tooltip, and the default selection falls back HOG → YuNet. The OpenCV engine itself is instantiated only on first selection, and a load failure pops a dialog and switches the radio back to HOG. The cost: availability is resolved at window construction, so installing a missing model file requires a restart.
 
-- **HOG/CNN**: 欧氏距离 → 相似度百分比
-- **YuNet**: 余弦相似度 → 相似度百分比
+**Robustness bought on the target side rather than with a bigger model.**
+Instead of adding a pose-invariant recognizer, each reference photo is expanded into up to 5 embeddings (original, mirrored, rotated ±10°, gamma-brightened), and a scene face is scored against the minimum distance over the entire bank. This is cheap to implement and helps profile and off-angle faces, but it is not free: loading one target runs five HOG detections plus five `num_jitters=5` encodings, and a larger bank raises the false-accept probability at a fixed tolerance — more chances to fall under the threshold also means more chances to fall under it wrongly.
 
-统一显示为0-100%相似度，便于横向比较。
+**Cross-engine similarity normalization, and its honest caveat.**
+dlib returns a Euclidean distance (roughly 0–1.2, smaller is better) while SFace returns a cosine similarity (−1–1, larger is better). To let users compare engines in one UI, both are mapped onto a single 0–100 % scale: `(1 − d)^0.8 × 100` for Euclidean, `(cos + 1) / 2 × 100` for cosine. The 0.8 exponent is a readability choice — it lifts low distances so a good match does not read as a lukewarm score. These two mappings are *monotone but not calibrated against each other*: 70 % from HOG and 70 % from YuNet do not represent the same false-accept rate. The tolerance slider operates on the underlying distances, where SFace similarity is first folded into `(1 − sim) / 2` so one threshold spans both metric families.
 
----
+**Size-adaptive detection with coordinate remapping.**
+Detection cost scales with pixel count, recognition quality scales with face detail, and the two pull in opposite directions. The engine resolves this per image: HOG downsizes anything above 1500 px to 1200 px, CNN anything above 2000 px, detection runs on the small copy, boxes are divided back by `scale_factor`, and embeddings are then extracted from the full-resolution preprocessed image. The upsample factor is likewise derived from the longest side (HOG: at most 2 below 600 px, at most 1 below 1200 px, 1 above) instead of being taken verbatim from the UI, so a requested value can be silently clamped — a deliberate trade of user control for not freezing the UI on a 4000-px photo. The cost is a second CLAHE pass over the full-size image whenever a downscale occurred.
 
-## 常见问题
+**Non-ASCII paths treated as a first-class constraint.**
+Every image read goes through `np.fromfile` + `cv2.imdecode` and every write through `cv2.imencode` + `tofile`, because `cv2.imread` / `imwrite` fail on non-ASCII paths on Windows. The ONNX loaders have no such escape hatch, so when the model path contains non-ASCII characters the engine copies both models into a `tempfile.mkdtemp()` directory, loads from there, and registers an `atexit` cleanup. This is a workaround for an upstream limitation, and it silently duplicates about 37 MB on disk for the lifetime of the process.
 
-### Q1: 安装dlib失败？
-**A**: Windows用户可下载预编译wheel：
-```bash
-# 从 https://github.com/z-mahmud22/Dlib_Windows_Python3.x 下载
-pip install dlib-19.22.99-cp39-cp39-win_amd64.whl
-```
+## Limitations / Roadmap
 
-### Q2: YuNet模型找不到？
-**A**: 运行模型下载脚本：
-```bash
-python models/download_models.py
-```
-
-### Q3: 检测不到小人脸？
-**A**: 增加上采样次数到2，或使用YuNet引擎。
-
-### Q4: 识别速度慢？
-**A**: 
-- 使用HOG代替CNN
-- 减少上采样次数
-- 使用YuNet（最快）
-
-### Q5: 误识率高？
-**A**: 降低阈值（如0.40），使用更清晰的目标照片。
-
----
-
-## 许可证
-
-本项目采用 MIT 许可证。
-
----
-
-## 致谢
-
-- [face_recognition](https://github.com/ageitgey/face_recognition)
-- [dlib](http://dlib.net/)
-- [OpenCV](https://opencv.org/)
-
----
-
-<div align="center">
-
-**DeepFocus Pro v3.0 最终版**
-
-Made with ❤️ for Digital Image Processing Course
-
-</div>
+- **No automated tests and no CI.** Correctness has only been checked interactively through the GUI.
+- **Stage visualization is dlib-only.** `process_scene_with_stages()` exists only on `FaceEnginePro`, and `VisualizationWorker` is always constructed with the dlib engine, so the pipeline viewer is unavailable when YuNet is the active backend.
+- **dlib is assumed present on several paths.** `load_target_image()`, `clear_targets()` and `compare_models()` dereference `self.engine` unconditionally, even though `__init__` sets it to `None` when the dlib import fails — a YuNet-only installation will hit an `AttributeError` there.
+- **Targets must pass dlib detection first.** A reference photo reaches the YuNet/SFace bank only if `FaceEnginePro.add_target_face()` succeeded on it, so a face that dlib misses never gets into the OpenCV engine.
+- **Dead code in the library modules.** `matcher.batch_compare`, `find_best_match`, `calculate_match_statistics`, `get_recommended_tolerance` and the four `TOLERANCE_PRESETS` tiers (0.35 / 0.45 / 0.55 / 0.65), plus `preprocessing.denoise_image`, `histogram_equalization` and `gamma_correction`, are implemented and documented but never called by the running pipeline — the UI exposes a continuous 0.30–0.60 tolerance slider instead of the four presets, applies no denoising, and `FaceEnginePro` re-implements gamma internally rather than importing it.
+- **`config.py` is only partially honored.** `main_pro.py` uses its logging and path settings, but the GUI hardcodes its own window size and a 0.45 default tolerance, diverging from `WINDOW_WIDTH` / `WINDOW_HEIGHT` and `DEFAULT_TOLERANCE = 0.50`; `MAX_IMAGE_DIMENSION` and `IMAGE_SAVE_QUALITY` are unused.
+- **The HTML report needs network access to draw its charts.** Images are inlined as base64, but Chart.js is pulled from a CDN, so the charts stay blank offline.
+- **CUDA is opportunistic only.** The CNN engine runs on GPU only if the installed dlib was compiled with CUDA; there is no bundled GPU build and no benchmark of the difference.
+- **No `LICENSE` file is present in the repository**, so reuse terms are currently undefined.
